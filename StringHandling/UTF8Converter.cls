@@ -10,26 +10,29 @@ Attribute VB_Exposed = False
 '
 '+-------------------------------------------------------------------------
 '|
-'|                            Copyright (C) 2018
-'|                            Frank Schwab
+'| SPDX-FileCopyrightText: 2020 Frank Schwab
 '|
-'| Permission is hereby granted, free of charge, to any person obtaining a copy
-'| of this software and associated documentation files (the "Software"), to deal
-'| in the Software without restriction, including without limitation the rights
-'| to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-'| copies of the Software, and to permit persons to whom the Software is
-'| furnished to do so, subject to the following conditions:
+'| SPDX-License-Identifier: MIT
 '|
-'| The above copyright notice and this permission notice shall be included in
-'| all copies or substantial portions of the Software.
+'| Copyright 2020, Frank Schwab
 '|
-'| THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-'| IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-'| FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-'| AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+'| Permission is hereby granted, free of charge, to any person obtaining a
+'| copy of this software and associated documentation files (the "Software"),
+'| to deal in the Software without restriction, including without limitation
+'| the rights to use, copy, modify, merge, publish, distribute, sublicense,
+'| and/or sell copies of the Software, and to permit persons to whom the
+'| Software is furnished to do so, subject to the following conditions:
+'|
+'| The above copyright notice and this permission notice shall be included
+'| in all copies or substantial portions of the Software.
+'|
+'| THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+'| OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+'| FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+'| THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 '| LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-'| OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-'| THE SOFTWARE.
+'| OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+'| IN THE SOFTWARE.
 '|
 '|-------------------------------------------------------------------------
 '| Class               | UTF8Converter
@@ -38,9 +41,13 @@ Attribute VB_Exposed = False
 '|---------------------+---------------------------------------------------
 '| Author              | Frank Schwab
 '|---------------------+---------------------------------------------------
-'| Version             | 1.0.0
+'| Version             | 1.0.4
 '|---------------------+---------------------------------------------------
 '| Changes             | 2006-03-06  Created. fhs
+'|                     | 2020-07-19  Simplified array check. fhs
+'|                     | 2020-08-03  Correct array check because it was a hack. fhs
+'|                     | 2020-09-01  Made 64 bit compatible. fhs
+'|                     | 2020-09-09  Simplified. fhs
 '|---------------------+---------------------------------------------------
 '| Remarks             | VBA stores strings in the UTF-16 encoding, i.e. each
 '|                     | character uses two bytes. However, for calling external
@@ -75,47 +82,46 @@ Attribute VB_Exposed = False
 '|                     | aText = u8c.FromUTF8ToVB(utf8Text)
 '+-------------------------------------------------------------------------
 
-Option Compare Binary
 Option Explicit
 
 
 '
 ' Constants for error messages
 '
-Private Const STR_ERROR_SOURCE   As String = "UTF8Converter"
-Private Const ERR_BASE As Long = vbObjectError + 19907
+Private Const ERR_STR_CLASS_NAME   As String = "UTF8Converter"
+Private Const ERR_NUM_BASE         As Long = vbObjectError + 19907
 
-Private Const ERR_INVALID_UTF16_CODE     As Long = ERR_BASE
-Private Const STR_ERR_INVALID_UTF16_CODE As String = "A VB character is not a valid UTF-16 code point"
+Private Const ERR_NUM_INVALID_UTF16_CODE As Long = ERR_NUM_BASE
+Private Const ERR_STR_INVALID_UTF16_CODE As String = "A VB character is not a valid UTF-16 code point"
 
-Private Const ERR_INVALID_UTF8_CODE     As Long = ERR_BASE + 1
-Private Const STR_ERR_INVALID_UTF8_CODE As String = "Invalid UTF-8 byte sequence"
+Private Const ERR_NUM_INVALID_UTF8_CODE As Long = ERR_NUM_BASE + 1
+Private Const ERR_STR_INVALID_UTF8_CODE As String = "Invalid UTF-8 byte sequence"
 
-Private Const ERR_CONVERSION     As Long = ERR_BASE + 2
-Private Const STR_ERR_CONVERSION As String = "Error calling '"
+Private Const ERR_NUM_API As Long = ERR_NUM_BASE + 2
+Private Const ERR_STR_API As String = "Unable to convert. '%1' returned code 0x%2: %3"
 
 
 '
 ' API declarations
 '
-Private Declare Function WideCharToMultiByte Lib "kernel32.dll" ( _
+Private Declare PtrSafe Function WideCharToMultiByte Lib "kernel32.dll" ( _
                          ByVal CodePage As Long, _
                          ByVal dwFlags As Long, _
-                         ByVal lpWideCharStr As Long, _
+                         ByVal lpWideCharStr As LongPtr, _
                          ByVal cchWideChar As Long, _
                          ByRef lpMultiByteStr As Byte, _
                          ByVal cbMultiByte As Long, _
-                         ByVal lpDefaultChar As Long, _
-                         ByVal lpUsedDefaultChar As Long) As Long
+                         ByVal lpDefaultChar As LongPtr, _
+                         ByVal lpUsedDefaultChar As LongPtr) As Long
 
-Private Declare Function MultiByteToWideChar Lib "kernel32.dll" ( _
+Private Declare PtrSafe Function MultiByteToWideChar Lib "kernel32.dll" ( _
                          ByVal CodePage As Long, _
                          ByVal dwFlags As Long, _
                          ByRef lpMultiByteStr As Byte, _
                          ByVal cbMultiByte As Long, _
-                         ByVal lpWideCharStr As Long, _
+                         ByVal lpWideCharStr As LongPtr, _
                          ByVal cchWideChar As Long) As Long
-                         
+
                         
 '
 ' API constants
@@ -129,55 +135,56 @@ Private Const MB_ERR_INVALID_CHARS As Long = &H8
 Private Const ERROR_NO_UNICODE_TRANSLATION As Long = 1113
 
 '
+' Instance variables
+'
+Private m_MM As New MessageManager
+
+'
 ' Private methods
 '
 
 '
 '+--------------------------------------------------------------------------
-'| Method           | isValidArray
+'| Method           | GetArrayLength
 '|------------------+-------------------------------------------------------
-'| Description      | Check if a byte array is valid. I.e. check whether
-'|                  | the array has been initialized.
+'| Description      | Get length of a byte array
 '|------------------+-------------------------------------------------------
-'| Parameters       | aByteArray: The array to check.
+'| Parameter        | aByteArray: Byte array to get the length for
 '|------------------+-------------------------------------------------------
-'| Return values    | True: Array has been initialized
-'|                  | False: Array has not been initialized
+'| Return values    | Length of byte array
 '|------------------+-------------------------------------------------------
 '| Author           | Frank Schwab
 '|------------------+-------------------------------------------------------
-'| Changes          | 2006-03-06  Created. fhs
+'| Changes          | 2020-07-18  Created. fhs
+'|                  | 2020-08-03  Correct array check because it was a hack. fhs
 '|------------------+-------------------------------------------------------
-'| Remarks          | ./.
+'| Remarks          | When one tries to calculate the length of an
+'|                  | uninitialized array an error is raised.
+'|                  | This function catches this error and returns a
+'|                  | length of 0, instead.
 '+--------------------------------------------------------------------------
 '
-Private Function isValidArray(ByRef aByteArray() As Byte) As Boolean
-   Dim upperBound As Long
-
-   isValidArray = False
-
+Private Function GetArrayLength(ByRef aByteArray() As Byte) As Long
    On Error Resume Next
 
-   ' Ubound will raise an error if the array has not been initialized
-   upperBound = UBound(aByteArray)
+   GetArrayLength = UBound(aByteArray) - LBound(aByteArray) + 1
 
-   ' Check for error
-   If Err.Number = 0 Then
-      If LBound(aByteArray) <= upperBound Then
-         isValidArray = True
-      End If
-   End If
+   ' If the array is empty there was an error so we set
+   ' the return value accordingly
+
+   If Err.Number <> 0 Then _
+      GetArrayLength = 0
 End Function
 
 '
 '+--------------------------------------------------------------------------
-'| Method           | raiseConversionError
+'| Method           | HandleAPIError
 '|------------------+-------------------------------------------------------
-'| Description      | Raise an error with an informative error message
+'| Description      | Raise an error from for Windows API calls that set
+'|                  | Err.LastDLLError
 '|------------------+-------------------------------------------------------
-'| Parameters       | functionName: The name of the function that returned
-'|                  |               an error.
-'|                  | rc:           The error code.
+'| Parameters       | apiFunctionName: The name of the function that returned
+'|                  |                  an error.
 '|------------------+-------------------------------------------------------
 '| Return values    | None.
 '|------------------+-------------------------------------------------------
@@ -185,19 +192,21 @@ End Function
 '|------------------+-------------------------------------------------------
 '| Changes          | 2006-03-06  Created. fhs
 '|------------------+-------------------------------------------------------
-'| Remarks          | ./.
+'| Remarks          | This method does not return because it raises an
+'|                  | error.
 '+--------------------------------------------------------------------------
 '
-Private Sub raiseConversionError(ByRef functionName As String, ByVal rc As Long)
-   Err.Raise ERR_CONVERSION, _
-             STR_ERROR_SOURCE, _
-             STR_ERR_CONVERSION & _
-                functionName & _
-                "': " & _
-                Format$(rc) & _
-                " (0x" & _
-                Hex$(rc) & _
-                ")"
+Private Sub HandleAPIError(ByRef apiFunctionName As String)
+   Dim errorCode As Long
+   
+   errorCode = Err.LastDllError
+      
+   Err.Raise ERR_NUM_API, _
+             ERR_STR_CLASS_NAME, _
+             m_MM.FormatMessageWithParameters(ERR_STR_API, _
+                                              apiFunctionName, _
+                                              Hex$(errorCode), _
+                                              m_MM.GetMessageForWindowsErrorCode(errorCode))
 End Sub
 
 '
@@ -223,7 +232,7 @@ End Sub
 '
 Public Function FromVBToUTF8(ByRef aVBString As String) As Byte()
    Dim stringSize As Long
-   Dim pointerToString As Long
+   Dim pointerToString As LongPtr
    Dim utf8Size As Long
    Dim result() As Byte
 
@@ -271,11 +280,11 @@ Public Function FromVBToUTF8(ByRef aVBString As String) As Byte()
                              0&
       Else
          If Err.LastDllError = ERROR_NO_UNICODE_TRANSLATION Then
-            Err.Raise ERR_INVALID_UTF16_CODE, _
-                      STR_ERROR_SOURCE, _
-                      STR_ERR_INVALID_UTF16_CODE
+            Err.Raise ERR_NUM_INVALID_UTF16_CODE, _
+                      ERR_STR_CLASS_NAME, _
+                      ERR_STR_INVALID_UTF16_CODE
          Else
-            raiseConversionError "WideCharToMultiByte", Err.LastDllError
+            HandleAPIError "WideCharToMultiByte"
          End If
       End If
    End If
@@ -306,11 +315,11 @@ Public Function FromUTF8ToVB(ByRef utf8ByteArray() As Byte) As String
    Dim result As String
    Dim rc As Long
 
-   If isValidArray(utf8ByteArray) Then
-      utf8Size = UBound(utf8ByteArray) - LBound(utf8ByteArray) + 1
-
+   utf8Size = GetArrayLength(utf8ByteArray)
+   
+   If utf8Size > 0 Then
       '
-      ' First, get size of string to receive the UTF-16 representation
+      ' First, get size of the string to receive the UTF-16 representation
       '
       resultSize = MultiByteToWideChar(CP_UTF8, _
                                        MB_ERR_INVALID_CHARS, _
@@ -343,11 +352,11 @@ Public Function FromUTF8ToVB(ByRef utf8ByteArray() As Byte) As String
                              resultSize
       Else
          If Err.LastDllError = ERROR_NO_UNICODE_TRANSLATION Then
-            Err.Raise ERR_INVALID_UTF8_CODE, _
-                      STR_ERROR_SOURCE, _
-                      STR_ERR_INVALID_UTF8_CODE
+            Err.Raise ERR_NUM_INVALID_UTF8_CODE, _
+                      ERR_STR_CLASS_NAME, _
+                      ERR_STR_INVALID_UTF8_CODE
          Else
-            raiseConversionError "MultiByteToWideChar", Err.LastDllError
+            HandleAPIError "MultiByteToWideChar"
          End If
       End If
    Else

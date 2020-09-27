@@ -7,6 +7,46 @@ Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
+'
+'+-------------------------------------------------------------------------
+'|
+'| SPDX-FileCopyrightText: 2020 Frank Schwab
+'|
+'| SPDX-License-Identifier: MIT
+'|
+'| Copyright 2020, Frank Schwab
+'|
+'| Permission is hereby granted, free of charge, to any person obtaining a
+'| copy of this software and associated documentation files (the "Software"),
+'| to deal in the Software without restriction, including without limitation
+'| the rights to use, copy, modify, merge, publish, distribute, sublicense,
+'| and/or sell copies of the Software, and to permit persons to whom the
+'| Software is furnished to do so, subject to the following conditions:
+'|
+'| The above copyright notice and this permission notice shall be included
+'| in all copies or substantial portions of the Software.
+'|
+'| THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+'| OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+'| FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+'| THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+'| LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+'| OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+'| IN THE SOFTWARE.
+'|
+'|-------------------------------------------------------------------------
+'| Class               | StringBuilder
+'|---------------------+---------------------------------------------------
+'| Description         | A string builder with method chaining
+'|---------------------+---------------------------------------------------
+'| Author              | Frank Schwab
+'|---------------------+---------------------------------------------------
+'| Version             | 1.0.0
+'|---------------------+---------------------------------------------------
+'| Changes             | 2020-07-20  Created. fhs
+'|---------------------+---------------------------------------------------
+'
+
 Option Explicit
 
 '
@@ -23,7 +63,7 @@ Private Const ERR_BLOCK_SIZE_TOO_LARGE As Long = N_START_ERROR_MESSAGE + 2
 Private Const STR_ERR_BLOCK_SIZE_TOO_LARGE As String = "Block size too large: "
 
 Private Const ERR_TOO_LONG As Long = N_START_ERROR_MESSAGE + 3
-Private Const STR_ERR_TOO_LONG As String = "Length exceeds maximum length for strings"
+Private Const STR_ERR_TOO_LONG As String = "Length exceeds maximum Length for strings"
 
 Private Const ERR_LENGTH_INCREASED As Long = N_START_ERROR_MESSAGE + 4
 Private Const STR_ERR_LENGTH_INCREASED As String = "The length must not be increased without content"
@@ -44,8 +84,8 @@ Private Const MAXIMUM_LENGTH As Long = &H7FFFFFFF
 ' Public constants
 '
 Public Enum TSBBlockSize
-   zkbbgMinimum = MINIMUM_BLOCK_SIZE
-   zkbbgMaximum = MAXIMUM_BLOCK_SIZE
+   sbbsMinimum = MINIMUM_BLOCK_SIZE
+   sbbsMaximum = MAXIMUM_BLOCK_SIZE
 End Enum
 
 '
@@ -57,13 +97,55 @@ Private m_BlockSize As Long
 Private m_Size As Long
 
 '
-' Public methoden
+' Public properties
 '
-Public Property Get blockSize() As Long
-   blockSize = m_BlockSize
+
+'
+'+--------------------------------------------------------------------------
+'| Property         | Get blockSize
+'|------------------+-------------------------------------------------------
+'| Purpose          | Return current block size of this instance
+'|------------------+-------------------------------------------------------
+'| Parameter        | ./.
+'|------------------+-------------------------------------------------------
+'| Return value     | Current block size
+'|------------------+-------------------------------------------------------
+'| Author           | Frank Schwab
+'|------------------+-------------------------------------------------------
+'| Changes          | 2018-11-29  Created. fhs
+'|------------------+-------------------------------------------------------
+'| Remarks          | ./.
+'|------------------+-------------------------------------------------------
+'| Typical call     | aBlockSize = sb.BlockSize
+'+--------------------------------------------------------------------------
+Public Property Get BlockSize() As Long
+   BlockSize = m_BlockSize
 End Property
 
-Public Property Let blockSize(ByVal newBlockSize As Long)
+'
+'+--------------------------------------------------------------------------
+'| Property         | Let BlockSize
+'|------------------+-------------------------------------------------------
+'| Purpose          | Set current block size of this instance
+'|------------------+-------------------------------------------------------
+'| Parameter        | newBlockSize: New block size
+'|------------------+-------------------------------------------------------
+'| Return value     | Current block size
+'|------------------+-------------------------------------------------------
+'| Exceptions       | Raises exception if new block size is below minimum
+'|                  | or above maximum block size.
+'|------------------+-------------------------------------------------------
+'| Author           | Frank Schwab
+'|------------------+-------------------------------------------------------
+'| Changes          | 2018-11-29  Created. fhs
+'|------------------+-------------------------------------------------------
+'| Remarks          | Minimum block size is TSBBlockSize.sbbsMinimum
+'|                  | Maximum block size is TSBBlockSize.sbbsMaximum
+'|------------------+-------------------------------------------------------
+'| Typical call     | sb.BlockSize = newBlockSize
+'+--------------------------------------------------------------------------
+'
+Public Property Let BlockSize(ByVal newBlockSize As Long)
    If newBlockSize < MINIMUM_BLOCK_SIZE Then
       Err.Raise ERR_BLOCK_SIZE_TOO_SMALL, MODULNAME, STR_ERR_BLOCK_SIZE_TOO_SMALL & Format$(newBlockSize)
    Else
@@ -75,24 +157,126 @@ Public Property Let blockSize(ByVal newBlockSize As Long)
    End If
 End Property
 
-Public Property Get content() As String
-   content = Left$(m_Content, m_Length)
+'
+'+--------------------------------------------------------------------------
+'| Property         | Get IsEmpty (read-only)
+'|------------------+-------------------------------------------------------
+'| Purpose          | Find out whether this instance has content, or not
+'|------------------+-------------------------------------------------------
+'| Parameter        | ./.
+'|------------------+-------------------------------------------------------
+'| Return value     | True:  No content in this instance
+'|                  | False: There is content in this instance
+'|------------------+-------------------------------------------------------
+'| Author           | Frank Schwab
+'|------------------+-------------------------------------------------------
+'| Changes          | 2018-11-29  Created. fhs
+'|------------------+-------------------------------------------------------
+'| Remarks          | ./.
+'|------------------+-------------------------------------------------------
+'| Typical call     | if sb.IsEmpty then
+'|                  |    ...    
+'|                  | end if    
+'+--------------------------------------------------------------------------
+'
+Public Property Get IsEmpty() As Boolean
+   IsEmpty = (m_Length = 0)
 End Property
 
-Public Property Let content(ByVal newContent As String)
-   Me.reset
-   Me.append newContent
+'
+'+--------------------------------------------------------------------------
+'| Property         | Get content
+'|------------------+-------------------------------------------------------
+'| Purpose          | Return current content as string
+'|------------------+-------------------------------------------------------
+'| Parameter        | ./.
+'|------------------+-------------------------------------------------------
+'| Return value     | Current content as string
+'|------------------+-------------------------------------------------------
+'| Author           | Frank Schwab
+'|------------------+-------------------------------------------------------
+'| Changes          | 2018-11-29  Created. fhs
+'|------------------+-------------------------------------------------------
+'| Remarks          | ./.
+'|------------------+-------------------------------------------------------
+'| Typical call     | result = sb.Content
+'+--------------------------------------------------------------------------
+'
+Public Property Get Content() As String
+   Content = Left$(m_Content, m_Length)
 End Property
 
-Public Property Get length() As Long
-   length = m_Length
+'
+'+--------------------------------------------------------------------------
+'| Property         | Let content
+'|------------------+-------------------------------------------------------
+'| Purpose          | Sets current content from string
+'|------------------+-------------------------------------------------------
+'| Parameter        | newContent: New content
+'|------------------+-------------------------------------------------------
+'| Return value     | Current content as string
+'|------------------+-------------------------------------------------------
+'| Author           | Frank Schwab
+'|------------------+-------------------------------------------------------
+'| Changes          | 2018-11-29  Created. fhs
+'|------------------+-------------------------------------------------------
+'| Remarks          | Old content is deleted by this operation
+'|------------------+-------------------------------------------------------
+'| Typical call     | sb.Content = someString
+'+--------------------------------------------------------------------------
+'
+Public Property Let Content(ByVal newContent As String)
+   Me.Reset
+   Me.Append newContent
 End Property
 
-Public Property Get isEmpty() As Boolean
-   isEmpty = (m_Length = 0)
+'
+'+--------------------------------------------------------------------------
+'| Property         | Get length
+'|------------------+-------------------------------------------------------
+'| Purpose          | Return length of current content
+'|------------------+-------------------------------------------------------
+'| Parameter        | ./.
+'|------------------+-------------------------------------------------------
+'| Return value     | Length of current content
+'|------------------+-------------------------------------------------------
+'| Author           | Frank Schwab
+'|------------------+-------------------------------------------------------
+'| Changes          | 2018-11-29  Created. fhs
+'|------------------+-------------------------------------------------------
+'| Remarks          | ./.
+'|------------------+-------------------------------------------------------
+'| Typical call     | actLength = sb.Length
+'+--------------------------------------------------------------------------
+'
+Public Property Get Length() As Long
+   Length = m_Length
 End Property
 
-Public Property Let length(ByVal newLength As Long)
+'
+'+--------------------------------------------------------------------------
+'| Property         | Let length
+'|------------------+-------------------------------------------------------
+'| Purpose          | Sets the length of the current content
+'|------------------+-------------------------------------------------------
+'| Parameter        | newLength: New length of content
+'|------------------+-------------------------------------------------------
+'| Return value     | ./-
+'|------------------+-------------------------------------------------------
+'| Exceptions       | Raises exception if new length is larger than
+'|                  | current length or less than 0.
+'|------------------+-------------------------------------------------------
+'| Author           | Frank Schwab
+'|------------------+-------------------------------------------------------
+'| Changes          | 2018-11-29  Created. fhs
+'|------------------+-------------------------------------------------------
+'| Remarks          | The length of the content can only be shortened,
+'|                  | not increased.
+'|------------------+-------------------------------------------------------
+'| Typical call     | sb.Length = sb.length - 10
+'+--------------------------------------------------------------------------
+'
+Public Property Let Length(ByVal newLength As Long)
    If newLength > m_Length Then
       Err.Raise ERR_LENGTH_INCREASED, MODULNAME, STR_ERR_LENGTH_INCREASED
    Else
@@ -104,13 +288,58 @@ Public Property Let length(ByVal newLength As Long)
    End If
 End Property
 
-Public Function setTo(ByVal text As String) As StringBuilder
-   Me.reset
+
+'
+' Public methods
+'
+
+'
+'+--------------------------------------------------------------------------
+'| Method           | SetTo
+'|------------------+-------------------------------------------------------
+'| Purpose          | Sets the content to be the supplied string
+'|------------------+-------------------------------------------------------
+'| Parameter        | text: New content of this instance
+'|------------------+-------------------------------------------------------
+'| Return value     | This instance
+'|------------------+-------------------------------------------------------
+'| Author           | Frank Schwab
+'|------------------+-------------------------------------------------------
+'| Changes          | 2018-11-29  Created. fhs
+'|------------------+-------------------------------------------------------
+'| Remarks          | ./.
+'|------------------+-------------------------------------------------------
+'| Typical call     | sb.SetTo(someString)
+'+--------------------------------------------------------------------------
+'Public Function SetTo(ByVal text As String) As StringBuilder
+   Me.Reset
    
-   Set setTo = Me.append(text)
+   Set SetTo = Me.Append(text)
 End Function
 
-Public Function append(ByVal text As String) As StringBuilder
+'
+'+--------------------------------------------------------------------------
+'| Method           | Append
+'|------------------+-------------------------------------------------------
+'| Purpose          | Appends the supplied string to the current content
+'|------------------+-------------------------------------------------------
+'| Parameter        | text: text to be appended to the content of this instance
+'|------------------+-------------------------------------------------------
+'| Return value     | This instance
+'|------------------+-------------------------------------------------------
+'| Exceptions       | Raises exception if new text would make the content
+'|                  | too large to hold
+'|------------------+-------------------------------------------------------
+'| Author           | Frank Schwab
+'|------------------+-------------------------------------------------------
+'| Changes          | 2018-11-29  Created. fhs
+'|------------------+-------------------------------------------------------
+'| Remarks          | ./.
+'|------------------+-------------------------------------------------------
+'| Typical call     | sb.Append someString
+'+--------------------------------------------------------------------------
+'
+Public Function Append(ByVal text As String) As StringBuilder
    Dim additionalLength As Long
    
    additionalLength = Len(text)
@@ -134,17 +363,37 @@ Public Function append(ByVal text As String) As StringBuilder
       m_Length = m_Length + additionalLength
    End If
 
-   Set append = Me
-End Function
-
-Public Function reset() As StringBuilder
-   m_Length = 0
-   
-   Set reset = Me
+   Set Append = Me
 End Function
 
 '
-' Klassenmethoden
+'+--------------------------------------------------------------------------
+'| Method           | Reset
+'|------------------+-------------------------------------------------------
+'| Purpose          | Clears (i.e. empties) the current content
+'|------------------+-------------------------------------------------------
+'| Parameter        | ./-
+'|------------------+-------------------------------------------------------
+'| Return value     | This instance
+'|------------------+-------------------------------------------------------
+'| Author           | Frank Schwab
+'|------------------+-------------------------------------------------------
+'| Changes          | 2018-11-29  Created. fhs
+'|------------------+-------------------------------------------------------
+'| Remarks          | Reset does not change the memory space allocated to
+'|                  | this instance.
+'|------------------+-------------------------------------------------------
+'| Typical call     | sb.Reset
+'+--------------------------------------------------------------------------
+'
+Public Function Reset() As StringBuilder
+   m_Length = 0
+   
+   Set Reset = Me
+End Function
+
+'
+' Class method
 '
 Private Sub Class_Initialize()
    m_Length = 0

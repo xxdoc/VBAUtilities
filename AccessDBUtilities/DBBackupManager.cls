@@ -7,13 +7,74 @@ Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
+'
+'+-------------------------------------------------------------------------
+'|
+'| SPDX-FileCopyrightText: 2020 Frank Schwab
+'|
+'| SPDX-License-Identifier: MIT
+'|
+'| Copyright 2020, Frank Schwab
+'|
+'| Permission is hereby granted, free of charge, to any person obtaining a
+'| copy of this software and associated documentation files (the "Software"),
+'| to deal in the Software without restriction, including without limitation
+'| the rights to use, copy, modify, merge, publish, distribute, sublicense,
+'| and/or sell copies of the Software, and to permit persons to whom the
+'| Software is furnished to do so, subject to the following conditions:
+'|
+'| The above copyright notice and this permission notice shall be included
+'| in all copies or substantial portions of the Software.
+'|
+'| THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+'| OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+'| FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+'| THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+'| LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+'| OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+'| IN THE SOFTWARE.
+'|
+'|
+'|-------------------------------------------------------------------------
+'| Class               | DBBackupManager
+'|---------------------+---------------------------------------------------
+'| Description         | Manage database backups
+'|---------------------+---------------------------------------------------
+'| Author              | Frank Schwab
+'|---------------------+---------------------------------------------------
+'| Version             | 1.0.0
+'|---------------------+---------------------------------------------------
+'| Changes             | 2018-09-25  Created. fhs
+'|---------------------+---------------------------------------------------
+'
+
 Option Compare Database
 Option Explicit
 
 '
 ' Private methods
 '
-Private Function getDateIndexedFileList(ByRef fileList As Scripting.Files) As Variant
+
+'
+'+--------------------------------------------------------------------------
+'| Method           | GetDateIndexedFileList
+'|------------------+-------------------------------------------------------
+'| Description      | Create an associative array which is indexed
+'|                  | by file creation date and contains Scripting.File
+'|                  | objects as values
+'|------------------+-------------------------------------------------------
+'| Parameter        | fileList: Scripting.Files list of files
+'|------------------+-------------------------------------------------------
+'| Return values    | A Scripting.Dictionary of the Scripting.File objects
+'|------------------+-------------------------------------------------------
+'| Author           | Frank Schwab
+'|------------------+-------------------------------------------------------
+'| Changes          | 2018-09-25  Created. fhs
+'|------------------+-------------------------------------------------------
+'| Remarks          | ./.
+'+--------------------------------------------------------------------------
+'
+Private Function GetDateIndexedFileList(ByRef fileList As Scripting.Files) As Variant
    Dim result As New Scripting.Dictionary
    result.CompareMode = BinaryCompare
 
@@ -23,15 +84,33 @@ Private Function getDateIndexedFileList(ByRef fileList As Scripting.Files) As Va
       result.Add Key:=aFile.DateCreated, Item:=aFile
    Next
    
-   Set getDateIndexedFileList = result
+   Set GetDateIndexedFileList = result
 End Function
 
-Private Function getDateSortedFileList(ByRef fileList As Scripting.Files) As Scripting.File()
+'
+'+--------------------------------------------------------------------------
+'| Method           | GetDateSortedFileList
+'|------------------+-------------------------------------------------------
+'| Description      | Create an array of Scripting.File objects
+'|                  | sorted by file creation date
+'|------------------+-------------------------------------------------------
+'| Parameter        | fileList: Scripting.Files list of files
+'|------------------+-------------------------------------------------------
+'| Return values    | An array of Scripting.File objects
+'|------------------+-------------------------------------------------------
+'| Author           | Frank Schwab
+'|------------------+-------------------------------------------------------
+'| Changes          | 2018-09-25  Created. fhs
+'|------------------+-------------------------------------------------------
+'| Remarks          | ./.
+'+--------------------------------------------------------------------------
+'
+Private Function GetDateSortedFileList(ByRef fileList As Scripting.Files) As Scripting.File()
    Dim aFile As Scripting.File
 
    Dim dateIndexedFileList As Scripting.Dictionary
    
-   Set dateIndexedFileList = getDateIndexedFileList(fileList)
+   Set dateIndexedFileList = GetDateIndexedFileList(fileList)
 
    Dim dh As New DictionaryHelper
    
@@ -53,10 +132,30 @@ Private Function getDateSortedFileList(ByRef fileList As Scripting.Files) As Scr
       Set result(i) = dateIndexedFileList.Item(dateList(i))
    Next i
    
-   getDateSortedFileList = result
+   GetDateSortedFileList = result
 End Function
 
-Private Sub deleteOldBackups(ByRef fso As Scripting.FileSystemObject, ByRef backupDirectory As String, ByVal noOfFilesToKeep As Integer)
+'
+'+--------------------------------------------------------------------------
+'| Method           | DeleteOldBackups
+'|------------------+-------------------------------------------------------
+'| Description      | Delete files in excess of the no. of files to keep, 
+'|                  | oldest files first
+'|------------------+-------------------------------------------------------
+'| Parameter        | fso: A Scripting.FileSystemObject
+'|                  | backupDirectory: The path of the backup directory
+'|                  | noOfFilesToKeep: The no. of files to keep
+'|------------------+-------------------------------------------------------
+'| Return values    | ./.
+'|------------------+-------------------------------------------------------
+'| Author           | Frank Schwab
+'|------------------+-------------------------------------------------------
+'| Changes          | 2018-09-25  Created. fhs
+'|------------------+-------------------------------------------------------
+'| Remarks          | ./.
+'+--------------------------------------------------------------------------
+'
+Private Sub DeleteOldBackups(ByRef fso As Scripting.FileSystemObject, ByRef backupDirectory As String, ByVal noOfFilesToKeep As Integer)
    Dim backupFolder As Scripting.Folder
 
    Set backupFolder = fso.GetFolder(backupDirectory)
@@ -68,7 +167,7 @@ Private Sub deleteOldBackups(ByRef fso As Scripting.FileSystemObject, ByRef back
    If fileList.count > noOfFilesToKeep Then
       Dim dateSortedFileList() As Scripting.File
 
-      dateSortedFileList = getDateSortedFileList(fileList)
+      dateSortedFileList = GetDateSortedFileList(fileList)
 
       Dim i As Integer
 
@@ -81,7 +180,28 @@ End Sub
 '
 ' Public methods
 '
-Public Sub backupDB(ByRef dbPath As String, ByVal noOfFilesToKeep As Integer)
+
+'
+'+--------------------------------------------------------------------------
+'| Method           | BackupDB
+'|------------------+-------------------------------------------------------
+'| Description      | Back up a database file with a maximum no. of files 
+'|                  | to keep as backups
+'|------------------+-------------------------------------------------------
+'| Parameter        | dbPath: Path of the database
+'|                  | noOfFilesToKeep: The no. of files to keep
+'|------------------+-------------------------------------------------------
+'| Return values    | ./.
+'|------------------+-------------------------------------------------------
+'| Author           | Frank Schwab
+'|------------------+-------------------------------------------------------
+'| Changes          | 2018-09-25  Created. fhs
+'|------------------+-------------------------------------------------------
+'| Remarks          | This method creates a subdirectory with the name
+'|                  | "Backups" in the directory where the database resides.
+'+--------------------------------------------------------------------------
+'
+Public Sub BackupDB(ByRef dbPath As String, ByVal noOfFilesToKeep As Integer)
    Dim fso As New Scripting.FileSystemObject
 
    Dim dbDirectory As String
@@ -100,7 +220,7 @@ Public Sub backupDB(ByRef dbPath As String, ByVal noOfFilesToKeep As Integer)
 
    fso.CopyFile dbPath, backupPath
 
-   deleteOldBackups fso, backupDirectory, noOfFilesToKeep
+   DeleteOldBackups fso, backupDirectory, noOfFilesToKeep
    
    MsgBox "Database backuped to file '" & backupPath & "'", vbInformation Or vbOKOnly, "Database backuped"
 End Sub

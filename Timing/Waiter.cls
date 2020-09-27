@@ -2,7 +2,7 @@ VERSION 1.0 CLASS
 BEGIN
   MultiUse = -1  'True
 END
-Attribute VB_Name = "StatusLine"
+Attribute VB_Name = "Waiter"
 Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
@@ -34,25 +34,25 @@ Attribute VB_Exposed = False
 '| OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 '| IN THE SOFTWARE.
 '|
-'|
 '|-------------------------------------------------------------------------
-'| Class               | StatusLine
+'| Class               | Waiter
 '|---------------------+---------------------------------------------------
-'| Description         | Show and clear Access status line
+'| Description         | Suspend program operation for a specified
+'|                     | amount of time.
 '|---------------------+---------------------------------------------------
 '| Author              | Frank Schwab
 '|---------------------+---------------------------------------------------
 '| Version             | 1.0.0
 '|---------------------+---------------------------------------------------
-'| Changes             | 2018-09-25  Created. fhs
-'|---------------------+---------------------------------------------------
-'| Remarks             | The status area is automatically cleared upon
-'|                     | termination of this instance.
-'|-------------------------------------------------------------------------
-'
+'| Changes             | 2020-08-24  Created. fhs
+'+-------------------------------------------------------------------------
 
-Option Compare Database
 Option Explicit
+
+'
+' API declarations
+'
+Private Declare PtrSafe Sub Sleep Lib "kernel32" (ByVal dwMilliseconds As Long)
 
 '
 ' Public methods
@@ -60,57 +60,84 @@ Option Explicit
 
 '
 '+--------------------------------------------------------------------------
-'| Method           | Clear
+'| Method           | WaitFor
 '|------------------+-------------------------------------------------------
-'| Description      | Clear the status area
+'| Purpose          | Suspends program execution for a specfified amount
+'|                  | of time
 '|------------------+-------------------------------------------------------
-'| Parameter        | ./.
+'| Parameter        | waitTimeInSeconds: No. of seconds to wait
 '|------------------+-------------------------------------------------------
-'| Return values    | ./.
+'| Return value     | ./.
 '|------------------+-------------------------------------------------------
 '| Author           | Frank Schwab
 '|------------------+-------------------------------------------------------
-'| Changes          | 2018-09-25  Created. fhs
+'| Changes          | 2020-08-24  Created. fhs
 '|------------------+-------------------------------------------------------
-'| Remarks          | ./.
+'| Remarks          | This implementation combines two wait methods:
+'|                  |
+'|                  |    1. There is a loop for every second that should be waited (VBA wait)
+'|                  |    2. 1 second is waited for by calling the sleep API function (OS wait)
+'|                  |
+'|                  | Why is this?
+'|                  |
+'|                  | If the wait is done purely in VBA Access has an extremely high CPU usage
+'|                  | as it constantly polls for the current time. This is not desirable.
+'|                  |
+'|                  | If the wait is done purely in the OS the whole Access application hangs while waiting
+'|                  | and does not respond to anything.
+'|                  |
+'|                  | Combining these two wait mechanisms lowers the CPU usage and leaves Access responsive
+'|                  | with a maximum delay of 1 second.
+'|------------------+-------------------------------------------------------
+'| Typical call     | Dim wtr As New Waiter
+'|                  | ...
+'|                  |    wtr.WaitFor 10   ' Wait 10 seconds
+'|                  | ...
 '+--------------------------------------------------------------------------
-'
-Public Sub Clear()
-   SysCmd acSysCmdClearStatus
-   
-   DoEvents	  ' This is necessary for the status area to be cleared
+Public Sub WaitFor(ByVal waitTimeInSeconds As Integer)
+   Dim secondsAlreadyWaited As Integer
+
+   secondsAlreadyWaited = 0
+
+   Do While secondsAlreadyWaited < waitTimeInSeconds
+      Sleep 1000  ' Wait 1 second
+
+      DoEvents ' Process events so Access is responsive
+
+      secondsAlreadyWaited = secondsAlreadyWaited + 1
+   Loop
 End Sub
 
 '
 '+--------------------------------------------------------------------------
-'| Method           | Show
+'| Method           | WaitForRandomTimeInInterval
 '|------------------+-------------------------------------------------------
-'| Description      | Show a text in the status area
+'| Purpose          | Suspends program execution for a random amount
+'|                  | of time
 '|------------------+-------------------------------------------------------
-'| Parameter        | aText: Text to show
+'| Parameters       | minWaitTime: Minimum wait time in seconds
+'|                  | maxWaitTime: Minimum wait time in seconds
 '|------------------+-------------------------------------------------------
-'| Return values    | ./.
+'| Return value     | ./.
 '|------------------+-------------------------------------------------------
 '| Author           | Frank Schwab
 '|------------------+-------------------------------------------------------
-'| Changes          | 2018-09-25  Created. fhs
+'| Changes          | 2020-08-24  Created. fhs
 '|------------------+-------------------------------------------------------
 '| Remarks          | ./.
+'|------------------+-------------------------------------------------------
+'| Typical call     | Dim wtr As New Waiter
+'|                  | ...
+'|                  |    wtr.WaitForRandomTimeInInterval 10, 20   ' Wait between 10 and 20 seconds
+'|                  | ...
 '+--------------------------------------------------------------------------
-'
-Public Sub Show(ByRef aText As String)
-   If Len(aText) > 0 Then
-      SysCmd acSysCmdSetStatus, aText
-   
-      DoEvents	' This is necessary for the text to be shown
-   Else
-      Me.Clear
-   End If
+Public Sub WaitForRandomTimeInInterval(ByVal minWaitTime As Integer, ByVal maxWaitTime As Integer)
+   Me.WaitFor CInt(Fix((Rnd() * (maxWaitTime - minWaitTime + 1)))) + minWaitTime
 End Sub
 
 '
 ' Class methods
 '
-Private Sub Class_Terminate()
-   Me.Clear	  ' Clear the status area upon termination of this class (very handy :-)
+Private Sub Class_Initialize()
+   Randomize
 End Sub

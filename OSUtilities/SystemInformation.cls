@@ -7,7 +7,47 @@ Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
-Option Compare Database
+'
+'+-------------------------------------------------------------------------
+'|
+'| SPDX-FileCopyrightText: 2020 Frank Schwab
+'|
+'| SPDX-License-Identifier: MIT
+'|
+'| Copyright 2020, Frank Schwab
+'|
+'| Permission is hereby granted, free of charge, to any person obtaining a
+'| copy of this software and associated documentation files (the "Software"),
+'| to deal in the Software without restriction, including without limitation
+'| the rights to use, copy, modify, merge, publish, distribute, sublicense,
+'| and/or sell copies of the Software, and to permit persons to whom the
+'| Software is furnished to do so, subject to the following conditions:
+'|
+'| The above copyright notice and this permission notice shall be included
+'| in all copies or substantial portions of the Software.
+'|
+'| THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+'| OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+'| FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+'| THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+'| LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+'| OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+'| IN THE SOFTWARE.
+'|
+'|-------------------------------------------------------------------------
+'| Class               | Set priority class
+'|---------------------+---------------------------------------------------
+'| Description         | Set the priority class of the currently running program
+'|---------------------+---------------------------------------------------
+'| Author              | Frank Schwab
+'|---------------------+---------------------------------------------------
+'| Version             | 1.0.1
+'|---------------------+---------------------------------------------------
+'| Changes             | 2020-07-20  Created. fhs
+'|                     | 2020-08-24  Made 64 bit compatible. fhs
+'|---------------------+---------------------------------------------------
+'
+
 Option Explicit
 
 '
@@ -123,48 +163,48 @@ Private Const UNKOWN As String = "<Unkown>"
 '
 ' References
 '
-Private Declare Function GetComputerName Lib "kernel32.dll" _
+Private Declare PtrSafe Function GetComputerName Lib "kernel32.dll" _
         Alias "GetComputerNameW" ( _
-        ByVal lpBuffer As Long, _
+        ByVal lpBuffer As LongPtr, _
         ByRef nSize As Long) As Long
 
-Private Declare Function GetUserName Lib "advapi32.dll" _
+Private Declare PtrSafe Function GetUserName Lib "advapi32.dll" _
         Alias "GetUserNameW" ( _
-        ByVal lpBuffer As Long, _
+        ByVal lpBuffer As LongPtr, _
         ByRef nSize As Long) As Long
 
-Private Declare Function GetLocaleInfo Lib "kernel32" _
+Private Declare PtrSafe Function GetLocaleInfo Lib "kernel32" _
         Alias "GetLocaleInfoW" ( _
         ByVal Locale As Long, _
         ByVal LCType As Long, _
-        ByVal lpLCData As Long, _
+        ByVal lpLCData As LongPtr, _
         ByVal cchData As Long) As Long
 
 '
 ' Private methods
 '
-Private Function getLocaleText(ByVal lokalisierungstyp As Long) As String
+Private Function GetLocaleText(ByVal localeType As Long) As String
    Dim result As String
    Dim length As Long
    Dim rc As Long
 
-   length = GetLocaleInfo(LOCALE_USER_DEFAULT, lokalisierungstyp, ByVal 0, 0)
+   length = GetLocaleInfo(LOCALE_USER_DEFAULT, localeType, ByVal 0, 0)
 
    result = String$(length, " ")
 
-   rc = GetLocaleInfo(LOCALE_USER_DEFAULT, lokalisierungstyp, StrPtr(result), length)
+   rc = GetLocaleInfo(LOCALE_USER_DEFAULT, localeType, StrPtr(result), length)
 
    If rc = RETURN_ERROR Then
-      getLocaleText = UNKOWN
+      GetLocaleText = UNKOWN
    Else
-      getLocaleText = Left$(result, rc - 1)
+      GetLocaleText = Left$(result, rc - 1)
    End If
 End Function
 
 '
 ' Public methods
 '
-Public Function getNameOfComputer() As String
+Public Function GetNameOfComputer() As String
    Dim result As String
    Dim rc As Long
    Dim length As Long
@@ -176,13 +216,13 @@ Public Function getNameOfComputer() As String
    rc = GetComputerName(StrPtr(result), length)
 
    If rc = RETURN_ERROR Then
-      getNameOfComputer = UNKOWN
+      GetNameOfComputer = UNKOWN
    Else
-      getNameOfComputer = Left$(result, length)
+      GetNameOfComputer = Left$(result, length)
    End If
 End Function
 
-Public Function getNameOfUser() As String
+Public Function GetNameOfUser() As String
    Dim result As String
    Dim rc As Long
    Dim length As Long
@@ -193,24 +233,32 @@ Public Function getNameOfUser() As String
    rc = GetUserName(StrPtr(result), length)
 
    If rc = RETURN_ERROR Then
-      getNameOfUser = UNKOWN
+      GetNameOfUser = UNKOWN
    Else
-      getNameOfUser = Left$(result, length - 1)
+      GetNameOfUser = Left$(result, length - 1)
    End If
 End Function
 
-Public Function getDecimalSeparator() As String
-   getDecimalSeparator = getLocaleText(LOCALE_SDECIMAL)
+Public Function GetDateSeparator() As String
+   GetDateSeparator = GetLocaleText(LOCALE_SDATE)
 End Function
 
-Public Function getListSeparator() As String
-   getListSeparator = getLocaleText(LOCALE_SLIST)
+Public Function GetDecimalSeparator() As String
+   GetDecimalSeparator = GetLocaleText(LOCALE_SDECIMAL)
 End Function
 
-Public Function getMeasure() As String
-   If getLocaleText(LOCALE_IMEASURE) = "0" Then
-      getMeasure = "cm"
+Public Function GetListSeparator() As String
+   GetListSeparator = GetLocaleText(LOCALE_SLIST)
+End Function
+
+Public Function GetTimeSeparator() As String
+   GetTimeSeparator = GetLocaleText(LOCALE_STIME)
+End Function
+
+Public Function GetMeasure() As String
+   If GetLocaleText(LOCALE_IMEASURE) = "0" Then
+      GetMeasure = "cm"
    Else
-      getMeasure = "in"
+      GetMeasure = "in"
    End If
 End Function
